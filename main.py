@@ -11,24 +11,37 @@ LINE = (
 )
 
 
+def _write(data: bytes) -> str:
+    """Write data to the first writable output dir, return the path."""
+    import os
+
+    candidates = []
+    env_dir = os.environ.get("MAKEFUN_OUTPUT_DIR")
+    if env_dir:
+        candidates.append(env_dir)
+    candidates.append("/output")
+    candidates.append(os.path.dirname(os.path.abspath(__file__)))
+    last_error = None
+    for out_dir in candidates:
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            path = os.path.join(out_dir, "entry.txt")
+            with open(path, "wb") as f:
+                f.write(data)
+            with open(path, "rb") as f:
+                assert f.read() == data, "round-trip check failed"
+            return path
+        except (OSError, AssertionError) as exc:
+            last_error = exc
+    raise last_error
+
+
 def main() -> None:
     text = LINE
     data = text.encode("utf-8")
     assert 1 <= len(text) <= 100, "line must be 1-100 characters"
     assert data.decode("utf-8") == text, "line must be valid UTF-8"
-
-    import os
-
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
-    try:
-        os.makedirs(out_dir, exist_ok=True)
-        path = os.path.join(out_dir, "entry.txt")
-        with open(path, "wb") as f:
-            f.write(data)
-    except OSError:
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "entry.txt")
-        with open(path, "wb") as f:
-            f.write(data)
+    _write(data)
 
 
 if __name__ == "__main__":
